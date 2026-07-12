@@ -1,11 +1,14 @@
+use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
-use zero2prod::{configuration::{DatabaseSettings, get_configuration}, startup::run};
-use sqlx::{PgPool, PgConnection, Connection, Executor};
 use uuid::Uuid;
+use zero2prod::{
+    configuration::{DatabaseSettings, get_configuration},
+    startup::run,
+};
 
 pub struct TestApp {
     address: String,
-    pool: PgPool
+    pool: PgPool,
 }
 
 async fn spawn_app() -> TestApp {
@@ -20,14 +23,14 @@ async fn spawn_app() -> TestApp {
     let server = run(listener, connection_pool.clone()).expect("Failed to bind address.");
     let _ = tokio::spawn(server);
 
-    TestApp{
+    TestApp {
         address,
-        pool: connection_pool
+        pool: connection_pool,
     }
 }
 
 async fn configure_database(config: &DatabaseSettings) -> PgPool {
-    let maintenance_settings = DatabaseSettings{
+    let maintenance_settings = DatabaseSettings {
         database_name: "postgres".to_string(),
         username: "postgres".to_string(),
         password: "password".to_string(),
@@ -83,7 +86,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
         .expect("Failed to execute request.");
 
     assert!(response.status().is_success());
-    
+
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
         .fetch_one(&app.pool)
         .await
@@ -100,7 +103,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
         ("email=ursula_le_guin%40gmail.com", "missing the name"),
-        ("", "missing both name and email")
+        ("", "missing both name and email"),
     ];
 
     for (invalid_body, error_message) in test_cases {
@@ -112,6 +115,11 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
             .await
             .expect("Failed to execute request");
 
-        assert_eq!(400, response.status().as_u16(), "The API did not fail with 400 Bad Request when the payload was {}.", error_message);
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not fail with 400 Bad Request when the payload was {}.",
+            error_message
+        );
     }
 }
