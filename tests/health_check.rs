@@ -1,6 +1,7 @@
 use std::net::TcpListener;
-use zero2prod::{configuration::get_configuration, startup::run};
-use sqlx::PgPool;
+use zero2prod::{configuration::{DatabaseSettings, get_configuration}, startup::run};
+use sqlx::{PgPool, PgConnection, Connection, Executor};
+use uuid::Uuid;
 
 pub struct TestApp {
     address: String,
@@ -12,12 +13,9 @@ async fn spawn_app() -> TestApp {
     let port = listener.local_addr().unwrap().port();
     let address = format!("http://127.0.0.1:{}", port);
 
-    let configuration = get_configuration().expect("Failed to read configuration file");
-    let connection_pool = PgPool::connect(
-        &configuration.database.connection_string()
-    )
-    .await
-    .expect("Failed to connect to Postgres");
+    let mut configuration = get_configuration().expect("Failed to read configuration file");
+    configuration.database.database_name = Uuid::new_v4().to_string();
+    let connection_pool = configure_database(&configuration.database).await;
 
     let server = run(listener, connection_pool.clone()).expect("Failed to bind address.");
     let _ = tokio::spawn(server);
@@ -25,6 +23,32 @@ async fn spawn_app() -> TestApp {
         address,
         pool: connection_pool
     }
+}
+
+async fn configure_database(config: &DatabaseSettings) -> PgPool {
+    let maintenance_settings = DatabaseSettings{
+        database_name: "postgres".to_string(),
+        username: "postgres".to_string(),
+        password: "password".to_string(),
+        ..config.clone()
+    };
+
+    let connection = PgConnection::connect(&maintenance_settings.connection_string())
+        .await
+        .expect("Failed to connect to Postgres")
+        .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
+        .await
+        .expect("Failed to create database");
+
+    let connection_pool = PgPool::connect(&config.connection_string())
+        .await
+        .expect("Failed to connect to Postgres");
+    sqlx::migrate!("./migrations")
+        .run(&connection_pool)
+        .await
+        .expect("Failed to migrate database");
+
+    connection_pool
 }
 
 #[tokio::test]
