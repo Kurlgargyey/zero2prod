@@ -1,13 +1,31 @@
 use std::net::TcpListener;
-use zero2prod::{configuration::get_configuration, startup};
-use sqlx::{PgConnection, Connection};
+use zero2prod::{configuration::get_configuration, startup::run};
+use sqlx::PgPool;
+use actix_web::web::Data;
 
-fn spawn_app() -> String {
+pub struct TestApp {
+    address: String,
+    pool: PgPool
+}
+
+async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port.");
     let port = listener.local_addr().unwrap().port();
-    let server = startup::run(listener).expect("Failed to bind address.");
+    let address = format!("http://127.0.0.1:{}", port);
+
+    let configuration = get_configuration().expect("Failed to read configuration file");
+    let connection_pool = PgPool::connect(
+        &configuration.database.connection_string()
+    )
+    .await
+    .expect("Failed to connect to Postgres");
+
+    let server = run(listener, connection_pool.clone()).expect("Failed to bind address.");
     let _ = tokio::spawn(server);
-    format!("http://127.0.0.1:{}", port)
+    TestApp{
+        address,
+        pool: connection_pool
+    }
 }
 
 #[tokio::test]
@@ -27,17 +45,12 @@ async fn health_check_works() {
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
-    let addr = spawn_app();
-    let configuration = get_configuration().expect("Failed to read configuration");
-    let connection_string = configuration.database.connection_string();
-    let mut connection = PgConnection::connect(&connection_string)
-        .await
-        .expect("Failed to open DB connection");
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
-        .post(&format!("{}/subscriptions", &addr))
+        .post(&format!("{}/subscriptions", &app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -47,7 +60,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     assert!(response.status().is_success());
     
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(&mut connection)
+        .fetch_one(app.pool)
         .await
         .expect("Failed to fetch saved subscription");
     assert_eq!(saved.email, "ursula_le_guin@gmail.com");
