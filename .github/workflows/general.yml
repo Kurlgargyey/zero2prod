@@ -52,7 +52,7 @@ jobs:
         # The uses keyword specifies that this step will run v4 of the actions/checkout action.
         # This is an action that checks out your repository onto the runner, allowing you to run scripts or other actions against your code (such as build and test tools).
         # You should use the checkout action any time your workflow will run against the repository's code.
-        uses: actions/checkout
+        uses: actions/checkout@v5
 
       # This GitHub Action installs a Rust toolchain using rustup. It is designed for one-line concise usage and good defaults.
       # It also takes care of caching intermediate build artifacts.
@@ -91,7 +91,7 @@ jobs:
     name: Rustfmt
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -112,7 +112,7 @@ jobs:
       # This will all be covered in detail in chapter 5.
       SQLX_OFFLINE: true
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v5
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
@@ -134,7 +134,7 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - uses: actions/checkout
+      - uses: actions/checkout@v5
       - name: Install the Rust toolchain
         uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
