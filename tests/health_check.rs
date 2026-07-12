@@ -1,7 +1,6 @@
 use std::net::TcpListener;
 use zero2prod::{configuration::get_configuration, startup::run};
 use sqlx::PgPool;
-use actix_web::web::Data;
 
 pub struct TestApp {
     address: String,
@@ -30,11 +29,11 @@ async fn spawn_app() -> TestApp {
 
 #[tokio::test]
 async fn health_check_works() {
-    let addr = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let response = client
-        .get(format!("{}/health_check", &addr))
+        .get(format!("{}/health_check", &app.address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -60,7 +59,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
     assert!(response.status().is_success());
     
     let saved = sqlx::query!("SELECT email, name FROM subscriptions",)
-        .fetch_one(app.pool)
+        .fetch_one(&app.pool)
         .await
         .expect("Failed to fetch saved subscription");
     assert_eq!(saved.email, "ursula_le_guin@gmail.com");
@@ -69,7 +68,7 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
 #[tokio::test]
 async fn subscribe_returns_a_400_when_data_is_missing() {
-    let addr = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     let test_cases = vec![
@@ -80,7 +79,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
 
     for (invalid_body, error_message) in test_cases {
         let response = client
-            .post(&format!("{}/subscriptions", &addr))
+            .post(&format!("{}/subscriptions", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
