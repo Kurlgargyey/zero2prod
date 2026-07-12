@@ -19,6 +19,7 @@ async fn spawn_app() -> TestApp {
 
     let server = run(listener, connection_pool.clone()).expect("Failed to bind address.");
     let _ = tokio::spawn(server);
+
     TestApp{
         address,
         pool: connection_pool
@@ -33,7 +34,7 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         ..config.clone()
     };
 
-    let connection = PgConnection::connect(&maintenance_settings.connection_string())
+    PgConnection::connect(&maintenance_settings.connection_string())
         .await
         .expect("Failed to connect to Postgres")
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
@@ -43,6 +44,7 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
     let connection_pool = PgPool::connect(&config.connection_string())
         .await
         .expect("Failed to connect to Postgres");
+
     sqlx::migrate!("./migrations")
         .run(&connection_pool)
         .await
