@@ -14,6 +14,7 @@ name = "zero2prod"
 actix-web = "4"
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 config = "0.14"
+secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 tracing = { version = "0.1.44", features = ["log"] }
