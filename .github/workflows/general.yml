@@ -9,10 +9,12 @@ on:
   push:
     branches:
       - chapter-04-telemetry
+      - chapter-05-going-live
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
       - chapter-04-telemetry
+      - chapter-05-going-live
 
 env:
   CARGO_TERM_COLOR: always
