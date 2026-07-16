@@ -21,9 +21,9 @@ fi
 
 if [[ -z "${SKIP_DOCKER}" ]]
 then
+    CONTAINER_NAME="postgres"
     docker rm -f ${CONTAINER_NAME}
     # Launch postgres using Docker
-    CONTAINER_NAME="postgres"
     docker run \
         --env POSTGRES_USER=${SUPERUSER} \
         --env POSTGRES_PASSWORD=${SUPERUSER_PWD} \
