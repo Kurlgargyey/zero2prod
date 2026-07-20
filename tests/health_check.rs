@@ -1,4 +1,4 @@
-use secrecy::{ExposeSecret, SecretString};
+use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::net::TcpListener;
 use std::sync::LazyLock;
@@ -55,14 +55,14 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         ..config.clone()
     };
 
-    PgConnection::connect(&maintenance_settings.connection_string().expose_secret())
+    PgConnection::connect_with(&maintenance_settings.connection_options())
         .await
         .expect("Failed to connect to Postgres")
         .execute(format!(r#"CREATE DATABASE "{}";"#, config.database_name).as_str())
         .await
         .expect("Failed to create database");
 
-    let connection_pool = PgPool::connect(&config.connection_string().expose_secret())
+    let connection_pool = PgPool::connect_with(config.connection_options())
         .await
         .expect("Failed to connect to Postgres");
 
