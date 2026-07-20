@@ -5,7 +5,7 @@ COPY . .
 ENV SQLX_OFFLINE=true
 RUN cargo build --release
 
-FROM debian:slim AS runtime
+FROM debian:stable-slim AS runtime
 WORKDIR /app
 RUN apt-get update -y \
   && apt-get install -y --no-install-recommends openssl ca-certificates \
