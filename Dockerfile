@@ -11,5 +11,5 @@ ENV SQLX_OFFLINE=true
 # build app on release profile
 RUN cargo build --release
 # start service
-ENTRYPOINT ["*./target/release/zero2prod"]
+ENTRYPOINT ["./target/release/zero2prod"]
 
