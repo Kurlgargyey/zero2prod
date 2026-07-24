@@ -20,9 +20,12 @@ pub struct FormData {
     )
 )]
 pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> HttpResponse {
+    let Ok(name) = SubscriberName::parse(form.0.name) else {
+        return HttpResponse::BadRequest().finish();
+    };
     let new_subscriber = NewSubscriber {
         email: form.0.email,
-        name: SubscriberName::parse(form.0.name),
+        name,
     };
     match insert_subscriber(&new_subscriber, &db_pool).await {
         Ok(_) => HttpResponse::Ok().finish(),
@@ -42,7 +45,7 @@ pub async fn insert_subscriber(data: &NewSubscriber, db_pool: &PgPool) -> Result
         "#,
         Uuid::new_v4(),
         data.email,
-        data.name.as_ref().trim(),
+        data.name.as_ref(),
         Utc::now()
     )
     .execute(db_pool)
