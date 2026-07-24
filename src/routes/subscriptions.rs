@@ -1,6 +1,7 @@
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use sqlx::PgPool;
+use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
@@ -18,6 +19,9 @@ pub struct FormData {
     )
 )]
 pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> HttpResponse {
+    if !is_valid_name(&form.name) {
+        return HttpResponse::BadRequest().finish();
+    }
     match insert_subscriber(&form, &db_pool).await {
         Ok(_) => HttpResponse::Ok().finish(),
         Err(_) => HttpResponse::InternalServerError().finish(),
@@ -36,7 +40,7 @@ pub async fn insert_subscriber(form: &FormData, db_pool: &PgPool) -> Result<(), 
         "#,
         Uuid::new_v4(),
         form.email,
-        form.name,
+        form.name.trim(),
         Utc::now()
     )
     .execute(db_pool)
@@ -46,4 +50,14 @@ pub async fn insert_subscriber(form: &FormData, db_pool: &PgPool) -> Result<(), 
         e
     })?;
     Ok(())
+}
+
+fn is_valid_name(input: &str) -> bool {
+    let forbidden_chars = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
+
+    let is_empty_or_whitespace = input.trim().is_empty();
+    let is_too_long = input.graphemes(true).count() > 256;
+    let contains_forbidden_chars = input.chars().any(|c| forbidden_chars.contains(&c));
+
+    !(is_empty_or_whitespace || is_too_long || contains_forbidden_chars)
 }
