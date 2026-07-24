@@ -42,7 +42,7 @@ pub async fn insert_subscriber(data: &NewSubscriber, db_pool: &PgPool) -> Result
         "#,
         Uuid::new_v4(),
         data.email,
-        data.name.inner_ref().trim(),
+        data.name.as_ref().trim(),
         Utc::now()
     )
     .execute(db_pool)
