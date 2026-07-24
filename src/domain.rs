@@ -1,9 +1,13 @@
 use unicode_segmentation::UnicodeSegmentation;
 
 pub struct SubscriberName(String);
+pub struct NewSubscriber {
+    pub name: SubscriberName,
+    pub email: String,
+}
 
 impl SubscriberName {
-    fn parse(input: &str) -> SubscriberName {
+    pub fn parse(input: String) -> SubscriberName {
         let forbidden_chars = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
 
         let is_empty_or_whitespace = input.trim().is_empty();
@@ -15,5 +19,8 @@ impl SubscriberName {
         } else {
             panic!("That was not a valid name!")
         }
+    }
+    pub fn inner_ref(&self) -> &str {
+        &self.0
     }
 }
