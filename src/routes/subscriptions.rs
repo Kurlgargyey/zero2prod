@@ -4,10 +4,23 @@ use sqlx::PgPool;
 use uuid::Uuid;
 
 use crate::domain::{NewSubscriber, SubscriberEmail, SubscriberName};
+
 #[derive(serde::Deserialize)]
 pub struct FormData {
     name: String,
     email: String,
+}
+
+impl TryFrom<FormData> for NewSubscriber {
+    type Error = String;
+
+    fn try_from(form: FormData) -> Result<Self, Self::Error> {
+        let (name, email) = (
+            SubscriberName::parse(form.name)?,
+            SubscriberEmail::parse(form.email)?,
+        );
+        Ok(NewSubscriber { email, name })
+    }
 }
 
 #[tracing::instrument(
@@ -19,13 +32,9 @@ pub struct FormData {
     )
 )]
 pub async fn subscribe(form: web::Form<FormData>, db_pool: web::Data<PgPool>) -> HttpResponse {
-    let (Ok(name), Ok(email)) = (
-        SubscriberName::parse(form.0.name),
-        SubscriberEmail::parse(form.0.email),
-    ) else {
+    let Ok(new_subscriber) = form.0.try_into() else {
         return HttpResponse::BadRequest().finish();
     };
-    let new_subscriber = NewSubscriber { email, name };
 
     match insert_subscriber(&new_subscriber, &db_pool).await {
         Ok(_) => HttpResponse::Ok().finish(),
