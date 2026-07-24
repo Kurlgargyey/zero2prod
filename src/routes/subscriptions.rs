@@ -1,7 +1,6 @@
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use sqlx::PgPool;
-use unicode_segmentation::UnicodeSegmentation;
 use uuid::Uuid;
 
 use crate::domain::{NewSubscriber, SubscriberName};
@@ -53,14 +52,4 @@ pub async fn insert_subscriber(data: &NewSubscriber, db_pool: &PgPool) -> Result
         e
     })?;
     Ok(())
-}
-
-fn is_valid_name(input: &str) -> bool {
-    let forbidden_chars = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
-
-    let is_empty_or_whitespace = input.trim().is_empty();
-    let is_too_long = input.graphemes(true).count() > 256;
-    let contains_forbidden_chars = input.chars().any(|c| forbidden_chars.contains(&c));
-
-    !(is_empty_or_whitespace || is_too_long || contains_forbidden_chars)
 }
