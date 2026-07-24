@@ -141,3 +141,61 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
         );
     }
 }
+
+#[tokio::test]
+async fn subscribe_returns_a_400_when_name_is_invalid() {
+    let app = spawn_app().await;
+    let client = reqwest::Client::new();
+
+    let test_cases = vec![
+        ("name=&email=fake@mail.com", "empty name"),
+        (
+            "ursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+
+ursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+
+ursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+
+ursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+
+ursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+ursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+ursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursulaursula
+
+        ",
+            "name too long",
+        ),
+        ("name=(&email=fine@com.com", "name contains open paren"),
+        ("name=)&email=fine@com.com", "name contains closed paren"),
+        ("name=/&email=fine@com.com", "name contains forward slash"),
+        ("name=\"&email=fine@com.com", "name contains double quote"),
+        ("name=<&email=fine@com.com", "name contains lt"),
+        ("name=>&email=fine@com.com", "name contains gt"),
+        ("name=\\&email=fine@com.com", "name contains backslash"),
+        (
+            "name={&email=fine@com.com",
+            "name contains open curly brace",
+        ),
+        (
+            "name=}&email=fine@com.com",
+            "name contains closed curly brace",
+        ),
+    ];
+
+    for (invalid_body, error_message) in test_cases {
+        let response = client
+            .post(&format!("{}/subscriptions", &app.address))
+            .header("Content-Type", "application/x-www-form-urlencoded")
+            .body(invalid_body)
+            .send()
+            .await
+            .expect("Failed to execute request");
+
+        assert_eq!(
+            400,
+            response.status().as_u16(),
+            "The API did not fail with a 400 Bad Request when the payload was {}",
+            error_message
+        );
+    }
+}
