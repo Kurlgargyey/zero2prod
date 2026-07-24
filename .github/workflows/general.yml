@@ -9,7 +9,6 @@ on:
   push:
   pull_request:
     types: [opened, synchronize, reopened]
-    branches:
 
 env:
   CARGO_TERM_COLOR: always
