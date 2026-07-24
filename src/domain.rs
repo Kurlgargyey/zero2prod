@@ -1,0 +1,19 @@
+use unicode_segmentation::UnicodeSegmentation;
+
+pub struct SubscriberName(String);
+
+impl SubscriberName {
+    fn parse(input: &str) -> SubscriberName {
+        let forbidden_chars = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
+
+        let is_empty_or_whitespace = input.trim().is_empty();
+        let is_too_long = input.graphemes(true).count() > 256;
+        let contains_forbidden_chars = input.chars().any(|c| forbidden_chars.contains(&c));
+
+        if !(is_empty_or_whitespace || is_too_long || contains_forbidden_chars) {
+            return SubscriberName(input.trim().to_string());
+        } else {
+            panic!("That was not a valid name!")
+        }
+    }
+}
