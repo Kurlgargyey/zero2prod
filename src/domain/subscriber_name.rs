@@ -2,10 +2,6 @@ use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
 pub struct SubscriberName(String);
-pub struct NewSubscriber {
-    pub name: SubscriberName,
-    pub email: String,
-}
 
 impl SubscriberName {
     pub fn parse(input: String) -> Result<Self, String> {
