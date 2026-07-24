@@ -7,7 +7,7 @@ pub struct NewSubscriber {
 }
 
 impl SubscriberName {
-    pub fn parse(input: String) -> Result<SubscriberName, String> {
+    pub fn parse(input: String) -> Result<Self, String> {
         let forbidden_chars = ['/', '(', ')', '"', '<', '>', '\\', '{', '}'];
 
         let is_empty_or_whitespace = input.trim().is_empty();
@@ -15,7 +15,7 @@ impl SubscriberName {
         let contains_forbidden_chars = input.chars().any(|c| forbidden_chars.contains(&c));
 
         if !(is_empty_or_whitespace || is_too_long || contains_forbidden_chars) {
-            Ok(SubscriberName(input.trim().to_string()))
+            Ok(Self(input.trim().to_string()))
         } else {
             Err(format!("{} is not a valid name", input))
         }
