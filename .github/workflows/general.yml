@@ -7,14 +7,9 @@ on:
   # These settings allow us to run this specific CI pipeline for PRs against
   # this specific branch (a.k.a. book chapter).
   push:
-    branches:
-      - chapter-04-telemetry
-      - chapter-05-going-live
   pull_request:
     types: [opened, synchronize, reopened]
     branches:
-      - chapter-04-telemetry
-      - chapter-05-going-live
 
 env:
   CARGO_TERM_COLOR: always
