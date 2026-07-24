@@ -43,3 +43,6 @@ features = [
 reqwest = "0.13.4"
 claims = "0.7"
 fake = "5.1.0"
+quickcheck = "1.1.0"
+quickcheck_macros = "1.2.0"
+rand = "0.10.2"
