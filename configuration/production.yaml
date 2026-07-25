@@ -2,3 +2,6 @@ application:
   host: "0.0.0.0"
 database:
   require_ssl: true
+email_client:
+  sender_email: "nahsirkivar@gmail.com"
+  base_url: "https://www.googleapis.com/"
