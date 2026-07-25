@@ -1,4 +1,4 @@
-use secrecy::SecretString;
+use secrecy::{ExposeSecret, SecretString};
 
 use reqwest::Client;
 
@@ -27,7 +27,7 @@ impl EmailClient {
         subject: &str,
         html_content: &str,
         text_content: &str,
-    ) -> Result<(), String> {
+    ) -> Result<(), reqwest::Error> {
         let url = self
             .base_url
             .join("/gmail/v1/users/me/messages/send")
@@ -39,7 +39,16 @@ impl EmailClient {
             html_body: html_content.to_owned(),
             text_body: text_content.to_owned(),
         };
-        let builder = self.http_client.post(url).json(&request_body);
+        let _builder = self
+            .http_client
+            .post(url)
+            .header(
+                "Authorization",
+                format!("Bearer {}", self.auth_token.expose_secret()),
+            )
+            .json(&request_body)
+            .send()
+            .await?;
         Ok(())
     }
 }
@@ -58,9 +67,9 @@ mod tests {
     use crate::domain::SubscriberEmail;
     use crate::email_client::EmailClient;
 
+    use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
-    use fake::{Fake, Faker};
     use secrecy::SecretString;
     use wiremock::matchers::any;
     use wiremock::{Mock, MockServer, ResponseTemplate};
