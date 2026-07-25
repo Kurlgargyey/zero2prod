@@ -4,4 +4,4 @@ database:
   require_ssl: true
 email_client:
   sender_email: "nahsirkivar@gmail.com"
-  base_url: "https://www.googleapis.com/"
+  base_url: "https://gmail.googleapis.com"
