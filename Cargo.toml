@@ -12,8 +12,11 @@ name = "zero2prod"
 
 [dependencies]
 actix-web = "4"
+base64 = "0.23.0"
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 config = "0.14"
+email-message = "0.7.0"
+email-message-wire = "0.7.0"
 reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
@@ -46,4 +49,5 @@ fake = "5.1.0"
 quickcheck = "1.1.0"
 quickcheck_macros = "1.2.0"
 rand = "0.10.2"
+serde_json = "1.0.151"
 wiremock = "0.6.5"

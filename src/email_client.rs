@@ -1,3 +1,7 @@
+use std::{error::Error, str::FromStr};
+
+use base64::{Engine, engine::general_purpose};
+use email_message::{Address, Body, Mailbox, Message};
 use secrecy::{ExposeSecret, SecretString};
 
 use reqwest::Client;
@@ -27,18 +31,26 @@ impl EmailClient {
         subject: &str,
         html_content: &str,
         text_content: &str,
-    ) -> Result<(), reqwest::Error> {
+    ) -> Result<(), Box<dyn Error>> {
         let url = self
             .base_url
             .join("/gmail/v1/users/me/messages/send")
             .expect("Invalid Email API subpath");
-        let request_body = SendEmailRequest {
-            from: self.sender.as_ref().to_owned(),
-            to: recipient.as_ref().to_owned(),
-            subject: subject.to_owned(),
-            html_body: html_content.to_owned(),
-            text_body: text_content.to_owned(),
-        };
+
+        let body = Body::text_and_html(text_content, html_content);
+        let to = Address::from_str(recipient.as_ref());
+        let from = Mailbox::from_str(self.sender.as_ref())?;
+
+        let message = email_message_wire::render_rfc822(
+            &Message::builder(body)
+                .to(to)
+                .from_mailbox(from)
+                .subject(subject)
+                .build()?,
+        )?;
+        let message_b64 = general_purpose::URL_SAFE_NO_PAD.encode(message);
+        let body = SendEmailRequest { raw: message_b64 };
+
         let _builder = self
             .http_client
             .post(url)
@@ -47,7 +59,7 @@ impl EmailClient {
                 format!("Bearer {}", self.auth_token.expose_secret()),
             )
             .header("Accept", "application/json")
-            .json(&request_body)
+            .json(&body)
             .send()
             .await?;
         Ok(())
@@ -56,17 +68,13 @@ impl EmailClient {
 
 #[derive(serde::Serialize)]
 struct SendEmailRequest {
-    from: String,
-    to: String,
-    subject: String,
-    html_body: String,
-    text_body: String,
+    raw: String,
 }
 
 #[cfg(test)]
 mod tests {
     use crate::domain::SubscriberEmail;
-    use crate::email_client::{EmailClient, SendEmailRequest};
+    use crate::email_client::EmailClient;
 
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
@@ -79,7 +87,11 @@ mod tests {
 
     impl wiremock::Match for SendEmailBodyMatcher {
         fn matches(&self, request: &Request) -> bool {
-            unimplemented!()
+            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&request.body) {
+                json.get("raw").is_some()
+            } else {
+                false
+            }
         }
     }
 
@@ -94,6 +106,7 @@ mod tests {
             .and(header("Content-Type", "application/json"))
             .and(path("/gmail/v1/users/me/messages/send"))
             .and(method("POST"))
+            .and(SendEmailBodyMatcher)
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&mock_server)
