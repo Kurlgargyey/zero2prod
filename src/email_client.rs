@@ -71,7 +71,7 @@ mod tests {
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use secrecy::SecretString;
-    use wiremock::matchers::any;
+    use wiremock::matchers::header_exists;
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
@@ -80,7 +80,7 @@ mod tests {
         let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
         let email_client = EmailClient::new(mock_server.uri(), sender, SecretString::default());
 
-        Mock::given(any())
+        Mock::given(header_exists("Authorization"))
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&mock_server)
