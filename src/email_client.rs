@@ -49,7 +49,7 @@ impl EmailClient {
                 .build()?,
         )?;
         let message_b64 = general_purpose::URL_SAFE_NO_PAD.encode(message);
-        let body = SendEmailRequest { raw: message_b64 };
+        let body = SendEmailRequest { raw: &message_b64 };
 
         let _builder = self
             .http_client
@@ -67,8 +67,8 @@ impl EmailClient {
 }
 
 #[derive(serde::Serialize)]
-struct SendEmailRequest {
-    raw: String,
+struct SendEmailRequest<'a> {
+    raw: &'a str,
 }
 
 #[cfg(test)]
