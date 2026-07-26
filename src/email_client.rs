@@ -66,14 +66,22 @@ struct SendEmailRequest {
 #[cfg(test)]
 mod tests {
     use crate::domain::SubscriberEmail;
-    use crate::email_client::EmailClient;
+    use crate::email_client::{EmailClient, SendEmailRequest};
 
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use secrecy::SecretString;
     use wiremock::matchers::{header, header_exists, method, path};
-    use wiremock::{Mock, MockServer, ResponseTemplate};
+    use wiremock::{Mock, MockServer, Request, ResponseTemplate};
+
+    struct SendEmailBodyMatcher;
+
+    impl wiremock::Match for SendEmailBodyMatcher {
+        fn matches(&self, request: &Request) -> bool {
+            unimplemented!()
+        }
+    }
 
     #[tokio::test]
     async fn send_email_fires_a_request_to_base_url() {
