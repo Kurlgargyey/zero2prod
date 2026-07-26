@@ -46,6 +46,7 @@ impl EmailClient {
                 "Authorization",
                 format!("Bearer {}", self.auth_token.expose_secret()),
             )
+            .header("Accept", "application/json")
             .json(&request_body)
             .send()
             .await?;
@@ -71,7 +72,7 @@ mod tests {
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use secrecy::SecretString;
-    use wiremock::matchers::header_exists;
+    use wiremock::matchers::{header, header_exists, method, path};
     use wiremock::{Mock, MockServer, ResponseTemplate};
 
     #[tokio::test]
@@ -81,6 +82,10 @@ mod tests {
         let email_client = EmailClient::new(mock_server.uri(), sender, SecretString::default());
 
         Mock::given(header_exists("Authorization"))
+            .and(header("Accept", "application/json"))
+            .and(header("Content-Type", "application/json"))
+            .and(path("/gmail/v1/users/me/messages/send"))
+            .and(method("POST"))
             .respond_with(ResponseTemplate::new(200))
             .expect(1)
             .mount(&mock_server)
