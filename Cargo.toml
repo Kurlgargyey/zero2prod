@@ -14,6 +14,7 @@ name = "zero2prod"
 actix-web = "4"
 chrono = { version = "0.4.22", default-features = false, features = ["clock"] }
 config = "0.14"
+reqwest = { version = "0.13.4", default-features = false, features = ["json", "rustls"] }
 secrecy = { version = "0.10.3", features = ["serde"] }
 serde = { version = "1", features = ["derive"] }
 serde-aux = "4.7.0"
@@ -40,9 +41,9 @@ features = [
 ]
 
 [dev-dependencies]
-reqwest = "0.13.4"
 claims = "0.7"
 fake = "5.1.0"
 quickcheck = "1.1.0"
 quickcheck_macros = "1.2.0"
 rand = "0.10.2"
+wiremock = "0.6.5"
