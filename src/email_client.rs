@@ -89,20 +89,18 @@ mod tests {
 
     impl wiremock::Match for SendEmailBodyMatcher {
         fn matches(&self, request: &Request) -> bool {
-            if let Ok(json) = serde_json::from_slice::<serde_json::Value>(&request.body) {
-                let Some(data) = json.get("raw") else {
-                    return false;
-                };
-                let Ok(message_wire) = general_purpose::URL_SAFE_NO_PAD.decode(
-                    data.as_str()
-                        .expect("key 'raw' does not contain b64 string"),
-                ) else {
-                    return false;
-                };
-                email_message_wire::parse_rfc822(&message_wire).is_ok()
-            } else {
-                false
-            }
+            let Ok(json) = serde_json::from_slice::<serde_json::Value>(&request.body) else {
+                return false;
+            };
+            let Some(data) = json.get("raw") else {
+                return false;
+            };
+            let Ok(message_wire) = general_purpose::URL_SAFE_NO_PAD
+                .decode(data.as_str().expect("key 'raw' does not contain string"))
+            else {
+                return false;
+            };
+            email_message_wire::parse_rfc822(&message_wire).is_ok()
         }
     }
 
