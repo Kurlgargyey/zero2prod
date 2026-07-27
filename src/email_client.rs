@@ -61,7 +61,8 @@ impl EmailClient {
             .header("Accept", "application/json")
             .json(&body)
             .send()
-            .await?;
+            .await?
+            .error_for_status()?;
         Ok(())
     }
 }
@@ -78,11 +79,12 @@ mod tests {
 
     use base64::Engine;
     use base64::engine::general_purpose;
+    use claims::{assert_err, assert_ok};
     use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
     use secrecy::SecretString;
-    use wiremock::matchers::{header, header_exists, method, path};
+    use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
 
     struct SendEmailBodyMatcher;
@@ -125,8 +127,32 @@ mod tests {
         let subject: String = Sentence(1..2).fake();
         let content: String = Paragraph(1..10).fake();
 
-        let _ = email_client
+        let outcome = email_client
             .send_email(subscriber_email, &subject, &content, &content)
             .await;
+
+        assert_ok!(outcome);
+    }
+
+    #[tokio::test]
+    async fn send_email_fails_if_the_server_returns_an_error() {
+        let mock_server = MockServer::start().await;
+        let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let email_client = EmailClient::new(mock_server.uri(), sender, SecretString::default());
+
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(500))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
+        let subject: String = Sentence(1..2).fake();
+        let content: String = Paragraph(1..10).fake();
+
+        let outcome = email_client
+            .send_email(subscriber_email, &subject, &content, &content)
+            .await;
+        assert_err!(outcome);
     }
 }
