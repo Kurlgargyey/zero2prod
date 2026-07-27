@@ -20,14 +20,11 @@ impl EmailClient {
         base_url: String,
         sender: SubscriberEmail,
         auth_token: SecretString,
-        timeout: u64,
+        timeout: std::time::Duration,
     ) -> Self {
         let base_url = reqwest::Url::parse(&base_url).expect("Invalid email API base URL");
         Self {
-            http_client: Client::builder()
-                .timeout(std::time::Duration::from_millis(timeout))
-                .build()
-                .unwrap(),
+            http_client: Client::builder().timeout(timeout).build().unwrap(),
             sender,
             base_url,
             auth_token,
@@ -88,9 +85,9 @@ mod tests {
     use base64::Engine;
     use base64::engine::general_purpose;
     use claims::{assert_err, assert_ok};
+    use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
-    use fake::{Fake, Faker};
     use secrecy::SecretString;
     use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -124,7 +121,12 @@ mod tests {
         Paragraph(1..10).fake()
     }
     fn mail_client(base_url: String) -> EmailClient {
-        EmailClient::new(base_url, email(), SecretString::default(), 200)
+        EmailClient::new(
+            base_url,
+            email(),
+            SecretString::default(),
+            std::time::Duration::from_millis(200),
+        )
     }
 
     #[tokio::test]
