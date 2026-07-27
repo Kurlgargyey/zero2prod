@@ -16,10 +16,18 @@ pub struct EmailClient {
 }
 
 impl EmailClient {
-    pub fn new(base_url: String, sender: SubscriberEmail, auth_token: SecretString) -> Self {
+    pub fn new(
+        base_url: String,
+        sender: SubscriberEmail,
+        auth_token: SecretString,
+        timeout: u64,
+    ) -> Self {
         let base_url = reqwest::Url::parse(&base_url).expect("Invalid email API base URL");
         Self {
-            http_client: Client::new(),
+            http_client: Client::builder()
+                .timeout(std::time::Duration::from_millis(timeout))
+                .build()
+                .unwrap(),
             sender,
             base_url,
             auth_token,
@@ -80,9 +88,9 @@ mod tests {
     use base64::Engine;
     use base64::engine::general_purpose;
     use claims::{assert_err, assert_ok};
-    use fake::Fake;
     use fake::faker::internet::en::SafeEmail;
     use fake::faker::lorem::en::{Paragraph, Sentence};
+    use fake::{Fake, Faker};
     use secrecy::SecretString;
     use wiremock::matchers::{any, header, header_exists, method, path};
     use wiremock::{Mock, MockServer, Request, ResponseTemplate};
@@ -106,11 +114,23 @@ mod tests {
         }
     }
 
+    fn email() -> SubscriberEmail {
+        SubscriberEmail::parse(SafeEmail().fake()).unwrap()
+    }
+    fn subject() -> String {
+        Sentence(1..2).fake()
+    }
+    fn content() -> String {
+        Paragraph(1..10).fake()
+    }
+    fn mail_client(base_url: String) -> EmailClient {
+        EmailClient::new(base_url, email(), SecretString::default(), 200)
+    }
+
     #[tokio::test]
     async fn send_email_sends_the_expected_request() {
         let mock_server = MockServer::start().await;
-        let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let email_client = EmailClient::new(mock_server.uri(), sender, SecretString::default());
+        let email_client = mail_client(mock_server.uri());
 
         Mock::given(header_exists("Authorization"))
             .and(header("Accept", "application/json"))
@@ -123,12 +143,8 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let subject: String = Sentence(1..2).fake();
-        let content: String = Paragraph(1..10).fake();
-
         let outcome = email_client
-            .send_email(subscriber_email, &subject, &content, &content)
+            .send_email(email(), &subject(), &content(), &content())
             .await;
 
         assert_ok!(outcome);
@@ -137,8 +153,7 @@ mod tests {
     #[tokio::test]
     async fn send_email_fails_if_the_server_returns_an_error() {
         let mock_server = MockServer::start().await;
-        let sender = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let email_client = EmailClient::new(mock_server.uri(), sender, SecretString::default());
+        let email_client = mail_client(mock_server.uri());
 
         Mock::given(any())
             .respond_with(ResponseTemplate::new(500))
@@ -146,13 +161,27 @@ mod tests {
             .mount(&mock_server)
             .await;
 
-        let subscriber_email = SubscriberEmail::parse(SafeEmail().fake()).unwrap();
-        let subject: String = Sentence(1..2).fake();
-        let content: String = Paragraph(1..10).fake();
+        let outcome = email_client
+            .send_email(email(), &subject(), &content(), &content())
+            .await;
+        assert_err!(outcome);
+    }
+
+    #[tokio::test]
+    async fn send_email_fails_if_the_server_takes_too_long_to_respond() {
+        let mock_server = MockServer::start().await;
+        let email_client = mail_client(mock_server.uri());
+
+        Mock::given(any())
+            .respond_with(ResponseTemplate::new(200).set_delay(std::time::Duration::from_mins(3)))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
 
         let outcome = email_client
-            .send_email(subscriber_email, &subject, &content, &content)
+            .send_email(email(), &subject(), &content(), &content())
             .await;
+
         assert_err!(outcome);
     }
 }
