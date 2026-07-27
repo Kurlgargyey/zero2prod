@@ -36,13 +36,14 @@ impl TestApp {
         &self.pool
     }
 
-    pub async fn post_subscriptions(&self, body: String) -> Result<Response, reqwest::Error> {
+    pub async fn post_subscriptions(&self, body: String) -> Response {
         reqwest::Client::new()
             .post(&format!("{}/subscriptions", &self.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(body)
             .send()
             .await
+            .expect("Failed to execute request")
     }
 }
 
