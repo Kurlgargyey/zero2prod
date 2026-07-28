@@ -50,13 +50,12 @@ pub async fn insert_subscriber(data: &NewSubscriber, db_pool: &PgPool) -> Result
     sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at, status)
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, 'confirmed')
         "#,
         Uuid::new_v4(),
         data.email.as_ref(),
         data.name.as_ref(),
-        Utc::now(),
-        "confirmed"
+        Utc::now()
     )
     .execute(db_pool)
     .await
