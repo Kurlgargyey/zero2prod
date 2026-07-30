@@ -1,4 +1,6 @@
-use reqwest::Response;
+use base64::{Engine, engine::general_purpose};
+use mail_parser::MessageParser;
+use reqwest::{Response, Url};
 use secrecy::SecretString;
 use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::LazyLock;
@@ -30,6 +32,11 @@ pub struct TestApp {
     pub port: u16,
 }
 
+pub struct ConfirmationLinks {
+    pub html: reqwest::Url,
+    pub plain_text: reqwest::Url,
+}
+
 impl TestApp {
     pub async fn post_subscriptions(&self, body: String) -> Response {
         reqwest::Client::new()
@@ -39,6 +46,40 @@ impl TestApp {
             .send()
             .await
             .expect("Failed to execute request")
+    }
+
+    pub fn get_confirmation_links(&self, email_request: &wiremock::Request) -> ConfirmationLinks {
+        let email_request_body: serde_json::Value =
+            serde_json::from_slice(&email_request.body).unwrap();
+        let email_message_wire = general_purpose::URL_SAFE_NO_PAD
+            .decode(email_request_body["raw"].as_str().unwrap())
+            .unwrap();
+
+        let message = MessageParser::default()
+            .parse(&email_message_wire)
+            .expect("Failed to extract original message from MIME-format");
+
+        let get_link = |s: &str| {
+            let links: Vec<_> = linkify::LinkFinder::new()
+                .links(s)
+                .filter(|l| *l.kind() == linkify::LinkKind::Url)
+                .collect();
+            assert_eq!(
+                links.len(),
+                1,
+                "did not find exactly 1 link in the provided slice"
+            );
+            links[0].as_str().to_owned()
+        };
+
+        let raw_link = get_link(&message.body_html(0).unwrap());
+        let html_link = Url::parse(&raw_link).unwrap();
+        let raw_link = get_link(&message.body_text(0).unwrap());
+        let text_link = Url::parse(&raw_link).unwrap();
+        ConfirmationLinks {
+            html: html_link,
+            plain_text: text_link,
+        }
     }
 }
 

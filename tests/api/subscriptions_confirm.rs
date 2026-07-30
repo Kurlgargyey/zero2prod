@@ -1,6 +1,3 @@
-use base64::{Engine, engine::general_purpose};
-use mail_parser::MessageParser;
-use reqwest::Url;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
 
@@ -33,33 +30,9 @@ async fn subscriptions_confirm_accepts_valid_request() {
     app.post_subscriptions(body.into()).await;
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-    let email_request_body: serde_json::Value =
-        serde_json::from_slice(&email_request.body).unwrap();
-    let email_message_wire = general_purpose::URL_SAFE_NO_PAD
-        .decode(email_request_body["raw"].as_str().unwrap())
-        .unwrap();
 
-    let message = MessageParser::default()
-        .parse(&email_message_wire)
-        .expect("Failed to extract original message from MIME-format");
-
-    let get_link = |s: &str| {
-        let links: Vec<_> = linkify::LinkFinder::new()
-            .links(s)
-            .filter(|l| *l.kind() == linkify::LinkKind::Url)
-            .collect();
-        assert_eq!(
-            links.len(),
-            1,
-            "did not find exactly 1 link in the provided slice"
-        );
-        links[0].as_str().to_owned()
-    };
-
-    let raw_link = get_link(&message.body_html(0).unwrap());
-    let mut link = Url::parse(&raw_link).unwrap();
+    let mut link = app.get_confirmation_links(email_request).plain_text;
     assert_eq!(link.host_str().unwrap(), "127.0.0.1");
-
     link.set_port(Some(app.port)).unwrap();
 
     let response = reqwest::get(link).await.unwrap();
