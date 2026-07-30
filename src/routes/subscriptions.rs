@@ -1,6 +1,7 @@
 use actix_web::{HttpResponse, web};
 use chrono::Utc;
 use sqlx::PgPool;
+use std::error::Error;
 use uuid::Uuid;
 
 use crate::{
@@ -47,9 +48,26 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     };
 
-    let confirmation_link = "https://confirmation.notreal.nah";
+    if send_confirmation_email(&email_client, new_subscriber)
+        .await
+        .is_err()
+    {
+        return HttpResponse::InternalServerError().finish();
+    };
 
-    if email_client
+    HttpResponse::Ok().finish()
+}
+
+#[tracing::instrument(
+    name = "Sending confirmation email",
+    skip(email_client, new_subscriber)
+)]
+pub async fn send_confirmation_email(
+    email_client: &EmailClient,
+    new_subscriber: NewSubscriber,
+) -> Result<(), Box<dyn Error>> {
+    let confirmation_link = "https://confirmation.notreal.nah";
+    email_client
         .send_email(
             new_subscriber.email,
             "Confirmation Email",
@@ -61,12 +79,6 @@ pub async fn subscribe(
             &format!("Please confirm your email\n{}", confirmation_link),
         )
         .await
-        .is_err()
-    {
-        return HttpResponse::InternalServerError().finish();
-    };
-
-    HttpResponse::Ok().finish()
 }
 
 #[tracing::instrument(
