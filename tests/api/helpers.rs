@@ -72,10 +72,8 @@ impl TestApp {
             links[0].as_str().to_owned()
         };
 
-        let raw_link = get_link(&message.body_html(0).unwrap());
-        let html_link = Url::parse(&raw_link).unwrap();
-        let raw_link = get_link(&message.body_text(0).unwrap());
-        let text_link = Url::parse(&raw_link).unwrap();
+        let html_link = Url::parse(&get_link(&message.body_html(0).unwrap())).unwrap();
+        let text_link = Url::parse(&get_link(&message.body_text(0).unwrap())).unwrap();
         ConfirmationLinks {
             html: html_link,
             plain_text: text_link,
