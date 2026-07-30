@@ -47,12 +47,18 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     };
 
+    let confirmation_link = "https://confirmation.notreal.nah";
+
     if email_client
         .send_email(
             new_subscriber.email,
             "Confirmation Email",
-            "Please confirm your email",
-            "Please confirm your email",
+            &format!(
+                "Please confirm your email<br />\
+                <a href=\"{}\">Confirm</a>",
+                confirmation_link
+            ),
+            &format!("Please confirm your email\n{}", confirmation_link),
         )
         .await
         .is_err()

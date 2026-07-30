@@ -1,3 +1,5 @@
+use base64::{Engine, engine::general_purpose};
+use mail_parser::MessageParser;
 use wiremock::matchers::{method, path};
 use wiremock::{Mock, ResponseTemplate};
 
@@ -84,4 +86,42 @@ async fn subscribe_sends_confirmation_email_for_valid_data() {
         .await;
 
     app.post_subscriptions(body.into()).await;
+}
+
+#[tokio::test]
+async fn subscribe_sends_a_confirmation_email_with_a_link() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/gmail/v1/users/me/messages/send"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+
+    let request = &app.email_server.received_requests().await.unwrap()[0];
+    let body_rcv: serde_json::Value = serde_json::from_slice(&request.body).unwrap();
+    let body_wire = general_purpose::URL_SAFE_NO_PAD
+        .decode(body_rcv["raw"].as_str().unwrap())
+        .expect("Failed to decode Base-64-Message");
+
+    let message = MessageParser::default()
+        .parse(&body_wire)
+        .expect("Failed to extract original message from MIME-format");
+
+    let get_link = |s: &str| {
+        let links: Vec<_> = linkify::LinkFinder::new()
+            .links(s)
+            .filter(|l| *l.kind() == linkify::LinkKind::Url)
+            .collect();
+        assert_eq!(links.len(), 1);
+        links[0].as_str().to_owned()
+    };
+
+    let html_link = get_link(&message.body_html(0).unwrap());
+    let text_link = get_link(&message.body_text(0).unwrap());
+    assert_eq!(html_link, text_link);
 }
