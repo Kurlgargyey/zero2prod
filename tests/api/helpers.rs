@@ -69,11 +69,15 @@ impl TestApp {
                 1,
                 "did not find exactly 1 link in the provided slice"
             );
-            links[0].as_str().to_owned()
+            let raw_link = links[0].as_str().to_owned();
+            let mut confirmation_link = Url::parse(&raw_link).unwrap();
+            assert_eq!(confirmation_link.host_str().unwrap(), "127.0.0.1");
+            confirmation_link.set_port(Some(self.port)).unwrap();
+            confirmation_link
         };
 
-        let html_link = Url::parse(&get_link(&message.body_html(0).unwrap())).unwrap();
-        let text_link = Url::parse(&get_link(&message.body_text(0).unwrap())).unwrap();
+        let html_link = get_link(&message.body_html(0).unwrap());
+        let text_link = get_link(&message.body_text(0).unwrap());
         ConfirmationLinks {
             html: html_link,
             plain_text: text_link,
