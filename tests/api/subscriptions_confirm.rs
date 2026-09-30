@@ -17,6 +17,7 @@ async fn subscriptions_confirm_rejects_requests_without_a_token() {
 #[tokio::test]
 async fn subscriptions_confirm_accepts_valid_request() {
     let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
 
     Mock::given(path("/gmail/v1/users/me/messages/send"))
         .and(method("POST"))
@@ -25,15 +26,10 @@ async fn subscriptions_confirm_accepts_valid_request() {
         .mount(&app.email_server)
         .await;
 
-    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
-
     app.post_subscriptions(body.into()).await;
 
     let email_request = &app.email_server.received_requests().await.unwrap()[0];
-
-    let mut link = app.get_confirmation_links(email_request).plain_text;
-    assert_eq!(link.host_str().unwrap(), "127.0.0.1");
-    link.set_port(Some(app.port)).unwrap();
+    let link = app.get_confirmation_links(email_request).plain_text;
 
     let response = reqwest::get(link).await.unwrap();
 
@@ -42,4 +38,39 @@ async fn subscriptions_confirm_accepts_valid_request() {
         200,
         "/subscriptions/confirm did not respond with a 200"
     );
+}
+
+#[tokio::test]
+async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
+    // Arrange
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/gmailv1/users/me/messages/send"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_link = app.get_confirmation_links(email_request);
+
+    // Act
+    reqwest::get(confirmation_link.html)
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+
+    // Assert
+    let saved = sqlx::query!("SELECT email, name, status FROM subscriptions",)
+        .fetch_one(&app.pool)
+        .await
+        .expect("Failed to fetch saved subscription.");
+
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
+    assert_eq!(saved.name, "le guin");
+    assert_eq!(saved.status, "confirmed");
 }
