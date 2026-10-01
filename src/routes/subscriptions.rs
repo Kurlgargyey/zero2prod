@@ -174,7 +174,7 @@ async fn store_token(
             e
         })?
     {
-        return Ok(subscription_token.into());
+        return Ok(subscription_token);
     };
     let subscription_token = generate_subscription_token();
     let query = sqlx::query!(
@@ -187,5 +187,5 @@ async fn store_token(
         tracing::error!("Failed to execute query: {:?}", e);
         e
     })?;
-    Ok(subscription_token.into())
+    Ok(subscription_token)
 }
