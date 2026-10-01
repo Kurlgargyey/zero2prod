@@ -128,6 +128,20 @@ async fn insert_subscriber(
     transaction: &mut PgTransaction<'_>,
 ) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
+    let maybe_id = sqlx::query_scalar::<_, Uuid>("SELECT id FROM subscriptions WHERE email = $1");
+
+    if let Some(subscriber_id) = maybe_id
+        .bind(data.email.as_ref())
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to execute query: {:?}", e);
+            e
+        })?
+    {
+        return Ok(subscriber_id);
+    };
+
     let query = sqlx::query!(
         r#"
         INSERT INTO subscriptions (id, email, name, subscribed_at, status)

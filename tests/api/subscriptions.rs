@@ -103,6 +103,22 @@ async fn subscribe_sends_confirmation_email_for_valid_data() {
 }
 
 #[tokio::test]
+async fn subscriber_sends_a_second_confirmation_mail_for_repeat_subscribers() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/gmail/v1/users/me/messages/send"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+    app.post_subscriptions(body.into()).await;
+}
+
+#[tokio::test]
 async fn subscribe_sends_a_confirmation_email_with_a_link() {
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
