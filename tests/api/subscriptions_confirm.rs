@@ -74,3 +74,32 @@ async fn clicking_on_the_confirmation_link_confirms_a_subscriber() {
     assert_eq!(saved.name, "le guin");
     assert_eq!(saved.status, "confirmed");
 }
+
+#[tokio::test]
+async fn clicking_on_the_confirmation_link_again_returns_unauthorized_if_already_confirmed() {
+    // Arrange
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/gmail/v1/users/me/messages/send"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(1)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+    let email_request = &app.email_server.received_requests().await.unwrap()[0];
+    let confirmation_link = app.get_confirmation_links(email_request);
+
+    // Act
+    reqwest::get(confirmation_link.plain_text)
+        .await
+        .unwrap()
+        .error_for_status()
+        .unwrap();
+
+    let second_response = reqwest::get(confirmation_link.html).await.unwrap();
+
+    assert_ne!(200, second_response.status().as_u16())
+}

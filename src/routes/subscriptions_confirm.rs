@@ -41,6 +41,18 @@ async fn confirm_subscriber(id: Uuid, pool: &PgPool) -> Result<(), sqlx::Error> 
         tracing::error!("Failed to execute query: {:?}", e);
         e
     })?;
+
+    sqlx::query!(
+        "DELETE FROM subscription_tokens WHERE subscriber_id = $1",
+        id
+    )
+    .execute(pool)
+    .await
+    .map_err(|e| {
+        tracing::error!("Failed to execute query: {:?}", e);
+        e
+    })?;
+
     Ok(())
 }
 
