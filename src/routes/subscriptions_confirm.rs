@@ -16,10 +16,6 @@ async fn get_subscriber_id_from_token(
     pool: &PgPool,
     subscription_token: &str,
 ) -> Result<Option<Uuid>, Box<dyn Error>> {
-    if subscription_token.len() != 25 || !subscription_token.is_ascii() {
-        tracing::error!("Subscription token is invalid.");
-        return Err(Box::new(ErrorBadRequest("Subscription token is invalid.")));
-    };
     let result = sqlx::query!(
         "SELECT subscriber_id FROM subscription_tokens WHERE subscription_token = $1",
         subscription_token
@@ -31,6 +27,14 @@ async fn get_subscriber_id_from_token(
         e
     })?;
     Ok(result.map(|r| r.subscriber_id))
+}
+
+async fn validate_subscription_token(subscription_token: &str) -> Result<(), actix_web::Error> {
+    if subscription_token.len() != 25 || !subscription_token.is_ascii() {
+        tracing::error!("Subscription token is invalid.");
+        return Err(ErrorBadRequest("Subscription token is invalid."));
+    };
+    Ok(())
 }
 
 #[tracing::instrument(name = "Mark subscriber as confirmed", skip(id, pool))]
@@ -65,6 +69,12 @@ pub async fn confirm(
     parameters: web::Query<Parameters>,
     db_pool: web::Data<PgPool>,
 ) -> HttpResponse {
+    if validate_subscription_token(&parameters.subscription_token)
+        .await
+        .is_err()
+    {
+        return HttpResponse::BadRequest().finish();
+    };
     let Ok(maybe_id) = get_subscriber_id_from_token(&db_pool, &parameters.subscription_token).await
     else {
         return HttpResponse::InternalServerError().finish();
