@@ -119,6 +119,40 @@ async fn subscriber_sends_a_second_confirmation_mail_for_repeat_subscribers() {
 }
 
 #[tokio::test]
+async fn repeat_subscriptions_reuse_an_active_confirmation_token() {
+    let app = spawn_app().await;
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    Mock::given(path("/gmail/v1/users/me/messages/send"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .expect(2)
+        .mount(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into()).await;
+    app.post_subscriptions(body.into()).await;
+
+    let subscriber_id = sqlx::query_scalar!(
+        "SELECT id FROM subscriptions WHERE email = $1",
+        "ursula_le_guin@gmail.com"
+    )
+    .fetch_one(&app.pool)
+    .await
+    .expect("Failed to fetch subscriber ID.");
+
+    let token_count = sqlx::query_scalar!(
+        r#"SELECT COUNT(subscription_token) AS "count!" FROM subscription_tokens WHERE subscriber_id = $1"#,
+        subscriber_id
+    )
+    .fetch_one(&app.pool)
+    .await
+    .expect("Failed to count tokens in database.");
+
+    assert_eq!(token_count, 1)
+}
+
+#[tokio::test]
 async fn subscribe_sends_a_confirmation_email_with_a_link() {
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";

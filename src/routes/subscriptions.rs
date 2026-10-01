@@ -64,13 +64,9 @@ pub async fn subscribe(
         return HttpResponse::InternalServerError().finish();
     };
 
-    let subscription_token = generate_subscription_token();
-    if store_token(subscriber_id, &subscription_token, &mut transaction)
-        .await
-        .is_err()
-    {
+    let Ok(subscription_token) = store_token(subscriber_id, &mut transaction).await else {
         return HttpResponse::InternalServerError().finish();
-    }
+    };
 
     if send_confirmation_email(
         &email_client,
@@ -128,10 +124,12 @@ async fn insert_subscriber(
     transaction: &mut PgTransaction<'_>,
 ) -> Result<Uuid, sqlx::Error> {
     let subscriber_id = Uuid::new_v4();
-    let maybe_id = sqlx::query_scalar::<_, Uuid>("SELECT id FROM subscriptions WHERE email = $1");
+    let maybe_id = sqlx::query_scalar!(
+        "SELECT id FROM subscriptions WHERE email = $1",
+        data.email.as_ref()
+    );
 
     if let Some(subscriber_id) = maybe_id
-        .bind(data.email.as_ref())
         .fetch_optional(&mut **transaction)
         .await
         .map_err(|e| {
@@ -159,15 +157,26 @@ async fn insert_subscriber(
     Ok(subscriber_id)
 }
 
-#[tracing::instrument(
-    name = "Store subscription token in the database",
-    skip(subscription_token, transaction)
-)]
+#[tracing::instrument(name = "Store subscription token in the database", skip(transaction))]
 async fn store_token(
     subscriber_id: Uuid,
-    subscription_token: &str,
     transaction: &mut PgTransaction<'_>,
-) -> Result<(), sqlx::Error> {
+) -> Result<String, sqlx::Error> {
+    let maybe_token = sqlx::query_scalar!(
+        "SELECT subscription_token FROM subscription_tokens WHERE subscriber_id = $1",
+        subscriber_id
+    );
+    if let Some(subscription_token) = maybe_token
+        .fetch_optional(&mut **transaction)
+        .await
+        .map_err(|e| {
+            tracing::error!("Failed to execute query: {:?}", e);
+            e
+        })?
+    {
+        return Ok(subscription_token.into());
+    };
+    let subscription_token = generate_subscription_token();
     let query = sqlx::query!(
         r#"INSERT INTO subscription_tokens (subscription_token, subscriber_id)
         VALUES ($1, $2)"#,
@@ -178,5 +187,5 @@ async fn store_token(
         tracing::error!("Failed to execute query: {:?}", e);
         e
     })?;
-    Ok(())
+    Ok(subscription_token.into())
 }
