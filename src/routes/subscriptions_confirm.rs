@@ -1,9 +1,9 @@
-use actix_web::{HttpResponse, web};
+use actix_web::{HttpResponse, error::ErrorBadRequest, web};
 use sqlx::PgPool;
+use std::error::Error;
 use uuid::Uuid;
 
 #[derive(serde::Deserialize)]
-#[allow(dead_code)]
 pub struct Parameters {
     subscription_token: String,
 }
@@ -15,7 +15,11 @@ pub struct Parameters {
 async fn get_subscriber_id_from_token(
     pool: &PgPool,
     subscription_token: &str,
-) -> Result<Option<Uuid>, sqlx::Error> {
+) -> Result<Option<Uuid>, Box<dyn Error>> {
+    if subscription_token.len() != 25 || !subscription_token.is_ascii() {
+        tracing::error!("Subscription token is invalid.");
+        return Err(Box::new(ErrorBadRequest("Subscription token is invalid.")));
+    };
     let result = sqlx::query!(
         "SELECT subscriber_id FROM subscription_tokens WHERE subscription_token = $1",
         subscription_token
