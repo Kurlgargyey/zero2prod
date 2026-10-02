@@ -119,13 +119,11 @@ async fn send_confirmation_email(
     let html_body = ConfirmationTemplateHtml {
         confirmation_link: &confirmation_link,
     }
-    .render()
-    .unwrap();
+    .render()?;
     let txt_body = ConfirmationTemplateTxt {
         confirmation_link: &confirmation_link,
     }
-    .render()
-    .unwrap();
+    .render()?;
 
     email_client
         .send_email(
