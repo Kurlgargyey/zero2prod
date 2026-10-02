@@ -1,4 +1,5 @@
 use actix_web::{HttpResponse, web};
+use askama::Template;
 use chrono::Utc;
 use rand::distr::Alphanumeric;
 use rand::{RngExt, rng};
@@ -16,6 +17,20 @@ use crate::{
 pub struct FormData {
     name: String,
     email: String,
+}
+
+#[derive(Template)]
+#[template(path = "confirmation.html")]
+
+struct ConfirmationTemplateHtml<'a> {
+    confirmation_link: &'a str,
+}
+
+#[derive(Template)]
+#[template(path = "confirmation.txt")]
+
+struct ConfirmationTemplateTxt<'a> {
+    confirmation_link: &'a str,
 }
 
 impl TryFrom<FormData> for NewSubscriber {
@@ -101,16 +116,23 @@ async fn send_confirmation_email(
         "{}/subscriptions/confirm?subscription_token={}",
         base_url, subscription_token
     );
+    let html_body = ConfirmationTemplateHtml {
+        confirmation_link: &confirmation_link,
+    }
+    .render()
+    .unwrap();
+    let txt_body = ConfirmationTemplateTxt {
+        confirmation_link: &confirmation_link,
+    }
+    .render()
+    .unwrap();
+
     email_client
         .send_email(
             new_subscriber.email,
             "Confirmation Email",
-            &format!(
-                "Please confirm your email<br />\
-                <a href=\"{}\">Confirm</a>",
-                confirmation_link
-            ),
-            &format!("Please confirm your email\n{}", confirmation_link),
+            &html_body,
+            &txt_body,
         )
         .await
 }
