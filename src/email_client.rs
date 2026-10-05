@@ -1,7 +1,10 @@
-use std::{error::Error, str::FromStr};
+use std::str::FromStr;
 
 use base64::{Engine, engine::general_purpose};
-use email_message::{Address, Body, Mailbox, Message};
+use email_message::{
+    Address, AddressParseError, Body, Mailbox, MailboxParseError, Message, MessageValidationError,
+};
+use email_message_wire::MessageRenderError;
 use secrecy::{ExposeSecret, SecretString};
 
 use reqwest::Client;
@@ -15,6 +18,46 @@ pub struct EmailClient {
     base_url: reqwest::Url,
     auth_token: SecretString,
 }
+
+#[derive(Debug)]
+pub enum MailClientError {
+    MailboxParseError(MailboxParseError),
+    AddressParseError(AddressParseError),
+    RenderError(MessageRenderError),
+    ValidationError(MessageValidationError),
+    TransportError(reqwest::Error),
+}
+impl From<AddressParseError> for MailClientError {
+    fn from(value: AddressParseError) -> Self {
+        Self::AddressParseError(value)
+    }
+}
+impl From<MessageValidationError> for MailClientError {
+    fn from(value: MessageValidationError) -> Self {
+        Self::ValidationError(value)
+    }
+}
+impl From<MailboxParseError> for MailClientError {
+    fn from(value: MailboxParseError) -> Self {
+        Self::MailboxParseError(value)
+    }
+}
+impl From<MessageRenderError> for MailClientError {
+    fn from(value: MessageRenderError) -> Self {
+        Self::RenderError(value)
+    }
+}
+impl From<reqwest::Error> for MailClientError {
+    fn from(value: reqwest::Error) -> Self {
+        Self::TransportError(value)
+    }
+}
+impl std::fmt::Display for MailClientError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Failed to send e-mail.")
+    }
+}
+impl std::error::Error for MailClientError {}
 
 impl EmailClient {
     pub fn new(
@@ -37,14 +80,14 @@ impl EmailClient {
         subject: &str,
         html_content: &str,
         text_content: &str,
-    ) -> Result<(), Box<dyn Error>> {
+    ) -> Result<(), MailClientError> {
         let url = self
             .base_url
             .join("/gmail/v1/users/me/messages/send")
             .expect("Invalid Email API subpath");
 
         let body = Body::text_and_html(text_content, html_content);
-        let to = Address::from_str(recipient.as_ref());
+        let to = [Address::from_str(recipient.as_ref())?];
         let from = Mailbox::from_str(self.sender.as_ref())?;
 
         let message = email_message_wire::render_rfc822(
