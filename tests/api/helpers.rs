@@ -19,6 +19,8 @@ static TRACING: LazyLock<()> = LazyLock::new(|| {
     if std::env::var("TEST_LOG").is_ok() {
         let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::stdout);
         init_subscriber(subscriber);
+        eprintln!("TEST_LOG branch taken");
+        tracing::info!("tracing initialized");
     } else {
         let subscriber = get_subscriber(subscriber_name, default_filter_level, std::io::sink);
         init_subscriber(subscriber);
