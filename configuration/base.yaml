@@ -1,5 +1,6 @@
 application:
   port: 8000
+  base_url: "http://127.0.0.1"
 database:
   host: "127.0.0.1"
   port: 5432
@@ -10,3 +11,4 @@ email_client:
   base_url: "http://localhost"
   sender_email: "test@gmail.com"
   auth_token: "my-secret-token"
+  timeout_milliseconds: 10000

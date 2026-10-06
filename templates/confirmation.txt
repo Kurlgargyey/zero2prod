@@ -1,0 +1,2 @@
+Please confirm your email
+{{ confirmation_link }}
