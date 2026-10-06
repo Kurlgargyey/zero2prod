@@ -1,5 +1,6 @@
 use actix_web::http::StatusCode;
 use actix_web::{HttpResponse, ResponseError, web};
+use anyhow::Context;
 use askama::Template;
 use chrono::Utc;
 use rand::distr::Alphanumeric;
@@ -50,8 +51,8 @@ fn error_chain_fmt(
 pub enum SubscribeError {
     #[error("{0}")]
     ValidationError(String),
-    #[error("{1}")]
-    UnexpectedError(#[source] Box<dyn std::error::Error>, String),
+    #[error(transparent)]
+    UnexpectedError(#[from] anyhow::Error),
 }
 
 impl std::fmt::Debug for SubscribeError {
@@ -131,28 +132,16 @@ pub async fn subscribe(
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> Result<HttpResponse, SubscribeError> {
     let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;
-    let mut transaction = db_pool.begin().await.map_err(|e| {
-        SubscribeError::UnexpectedError(
-            Box::new(e),
-            "Failed to obtain a connection from the database pool.".into(),
-        )
-    })?;
+    let mut transaction = db_pool
+        .begin()
+        .await
+        .context("Failed to obtain a connection from the database pool.")?;
     let subscriber_id = insert_subscriber(&new_subscriber, &mut transaction)
         .await
-        .map_err(|e| {
-            SubscribeError::UnexpectedError(
-                Box::new(e),
-                "Failed to insert a new subscriber.".into(),
-            )
-        })?;
+        .context("Failed to insert a new subscriber.")?;
     let subscription_token = store_token(subscriber_id, &mut transaction)
         .await
-        .map_err(|e| {
-            SubscribeError::UnexpectedError(
-                Box::new(e),
-                "Failed to store the subscription token.".into(),
-            )
-        })?;
+        .context("Failed to store the subscription token.")?;
 
     send_confirmation_email(
         &email_client,
@@ -161,16 +150,12 @@ pub async fn subscribe(
         &subscription_token,
     )
     .await
-    .map_err(|e| {
-        SubscribeError::UnexpectedError(Box::new(e), "Failed to send confirmation mail.".into())
-    })?;
+    .context("Failed to send confirmation mail.")?;
 
-    transaction.commit().await.map_err(|e| {
-        SubscribeError::UnexpectedError(
-            Box::new(e),
-            "Failed to commit transaction to store the new subscriber.".into(),
-        )
-    })?;
+    transaction
+        .commit()
+        .await
+        .context("Failed to commit transaction to store the new subscriber.")?;
 
     Ok(HttpResponse::Ok().finish())
 }
