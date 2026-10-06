@@ -10,7 +10,7 @@ use uuid::Uuid;
 
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
-    email_client::{EmailClient, MailClientError},
+    email_client::EmailClient,
     startup::ApplicationBaseUrl,
 };
 
@@ -65,33 +65,6 @@ impl ResponseError for SubscribeError {
             SubscribeError::ValidationError(_) => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
-    }
-}
-
-#[derive(thiserror::Error)]
-pub enum SendEmailError {
-    #[error("Failed to render Mail template.")]
-    TemplateError(#[from] askama::Error),
-    #[error("Transport error while sending email.")]
-    TransportError(#[from] MailClientError),
-}
-
-impl std::fmt::Debug for SendEmailError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
-    }
-}
-
-#[derive(thiserror::Error)]
-#[error(
-    "A database error was encountered while \
-    tring to store a subscription token."
-)]
-pub struct StoreTokenError(#[from] sqlx::Error);
-
-impl std::fmt::Debug for StoreTokenError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        error_chain_fmt(self, f)
     }
 }
 
@@ -167,7 +140,7 @@ async fn send_confirmation_email(
     new_subscriber: NewSubscriber,
     base_url: &str,
     subscription_token: &str,
-) -> Result<(), SendEmailError> {
+) -> Result<(), anyhow::Error> {
     let confirmation_link = format!(
         "{}/subscriptions/confirm?subscription_token={}",
         base_url, subscription_token
@@ -175,11 +148,13 @@ async fn send_confirmation_email(
     let html_body = ConfirmationTemplateHtml {
         confirmation_link: &confirmation_link,
     }
-    .render()?;
+    .render()
+    .context("Failed to render HTML template.")?;
     let txt_body = ConfirmationTemplateTxt {
         confirmation_link: &confirmation_link,
     }
-    .render()?;
+    .render()
+    .context("Failed to render plain text template.")?;
 
     Ok(email_client
         .send_email(
@@ -188,7 +163,8 @@ async fn send_confirmation_email(
             &html_body,
             &txt_body,
         )
-        .await?)
+        .await
+        .context("Transport error while trying to send email.")?)
 }
 
 #[tracing::instrument(
@@ -237,7 +213,7 @@ async fn insert_subscriber(
 async fn store_token(
     subscriber_id: Uuid,
     transaction: &mut PgTransaction<'_>,
-) -> Result<String, StoreTokenError> {
+) -> Result<String, sqlx::Error> {
     let maybe_token = sqlx::query_scalar!(
         "SELECT subscription_token FROM subscription_tokens WHERE subscriber_id = $1",
         subscriber_id
