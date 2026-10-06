@@ -22,14 +22,12 @@ pub struct FormData {
 
 #[derive(Template)]
 #[template(path = "confirmation.html")]
-
 struct ConfirmationTemplateHtml<'a> {
     confirmation_link: &'a str,
 }
 
 #[derive(Template)]
 #[template(path = "confirmation.txt")]
-
 struct ConfirmationTemplateTxt<'a> {
     confirmation_link: &'a str,
 }
