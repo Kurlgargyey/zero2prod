@@ -50,8 +50,8 @@ fn error_chain_fmt(
 pub enum SubscribeError {
     #[error("{0}")]
     ValidationError(String),
-    #[error(transparent)]
-    UnexpectedError(Box<dyn std::error::Error>),
+    #[error("{1}")]
+    UnexpectedError(#[source] Box<dyn std::error::Error>, String),
 }
 
 impl std::fmt::Debug for SubscribeError {
@@ -131,16 +131,28 @@ pub async fn subscribe(
     base_url: web::Data<ApplicationBaseUrl>,
 ) -> Result<HttpResponse, SubscribeError> {
     let new_subscriber = form.0.try_into().map_err(SubscribeError::ValidationError)?;
-    let mut transaction = db_pool
-        .begin()
-        .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e)))?;
+    let mut transaction = db_pool.begin().await.map_err(|e| {
+        SubscribeError::UnexpectedError(
+            Box::new(e),
+            "Failed to obtain a connection from the database pool.".into(),
+        )
+    })?;
     let subscriber_id = insert_subscriber(&new_subscriber, &mut transaction)
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e)))?;
+        .map_err(|e| {
+            SubscribeError::UnexpectedError(
+                Box::new(e),
+                "Failed to insert a new subscriber.".into(),
+            )
+        })?;
     let subscription_token = store_token(subscriber_id, &mut transaction)
         .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e)))?;
+        .map_err(|e| {
+            SubscribeError::UnexpectedError(
+                Box::new(e),
+                "Failed to store the subscription token.".into(),
+            )
+        })?;
 
     send_confirmation_email(
         &email_client,
@@ -149,12 +161,16 @@ pub async fn subscribe(
         &subscription_token,
     )
     .await
-    .map_err(|e| SubscribeError::UnexpectedError(Box::new(e)))?;
+    .map_err(|e| {
+        SubscribeError::UnexpectedError(Box::new(e), "Failed to send confirmation mail.".into())
+    })?;
 
-    transaction
-        .commit()
-        .await
-        .map_err(|e| SubscribeError::UnexpectedError(Box::new(e)))?;
+    transaction.commit().await.map_err(|e| {
+        SubscribeError::UnexpectedError(
+            Box::new(e),
+            "Failed to commit transaction to store the new subscriber.".into(),
+        )
+    })?;
 
     Ok(HttpResponse::Ok().finish())
 }
