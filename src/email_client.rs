@@ -20,7 +20,7 @@ pub struct EmailClient {
 }
 
 #[derive(thiserror::Error, Debug)]
-#[error("Failed to send e-mail.")]
+#[error("Failed to send e-mail: {0}")]
 pub enum MailClientError {
     MailboxParseError(#[from] MailboxParseError),
     AddressParseError(#[from] AddressParseError),
