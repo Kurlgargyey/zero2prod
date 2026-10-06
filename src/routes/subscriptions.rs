@@ -5,7 +5,6 @@ use chrono::Utc;
 use rand::distr::Alphanumeric;
 use rand::{RngExt, rng};
 use sqlx::{Executor, PgPool, PgTransaction};
-use std::error::Error;
 use uuid::Uuid;
 
 use crate::{
