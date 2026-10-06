@@ -19,45 +19,15 @@ pub struct EmailClient {
     auth_token: SecretString,
 }
 
-#[derive(Debug)]
+#[derive(thiserror::Error, Debug)]
+#[error("Failed to send e-mail.")]
 pub enum MailClientError {
-    MailboxParseError(MailboxParseError),
-    AddressParseError(AddressParseError),
-    RenderError(MessageRenderError),
-    ValidationError(MessageValidationError),
-    TransportError(reqwest::Error),
+    MailboxParseError(#[from] MailboxParseError),
+    AddressParseError(#[from] AddressParseError),
+    RenderError(#[from] MessageRenderError),
+    ValidationError(#[from] MessageValidationError),
+    TransportError(#[from] reqwest::Error),
 }
-impl From<AddressParseError> for MailClientError {
-    fn from(value: AddressParseError) -> Self {
-        Self::AddressParseError(value)
-    }
-}
-impl From<MessageValidationError> for MailClientError {
-    fn from(value: MessageValidationError) -> Self {
-        Self::ValidationError(value)
-    }
-}
-impl From<MailboxParseError> for MailClientError {
-    fn from(value: MailboxParseError) -> Self {
-        Self::MailboxParseError(value)
-    }
-}
-impl From<MessageRenderError> for MailClientError {
-    fn from(value: MessageRenderError) -> Self {
-        Self::RenderError(value)
-    }
-}
-impl From<reqwest::Error> for MailClientError {
-    fn from(value: reqwest::Error) -> Self {
-        Self::TransportError(value)
-    }
-}
-impl std::fmt::Display for MailClientError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "Failed to send e-mail.")
-    }
-}
-impl std::error::Error for MailClientError {}
 
 impl EmailClient {
     pub fn new(
