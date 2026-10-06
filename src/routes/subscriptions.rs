@@ -156,7 +156,7 @@ async fn send_confirmation_email(
     .render()
     .context("Failed to render plain text template.")?;
 
-    Ok(email_client
+    email_client
         .send_email(
             new_subscriber.email,
             "Confirmation Email",
@@ -164,7 +164,7 @@ async fn send_confirmation_email(
             &txt_body,
         )
         .await
-        .context("Transport error while trying to send email.")?)
+        .context("Transport error while trying to send email.")
 }
 
 #[tracing::instrument(
@@ -181,14 +181,7 @@ async fn insert_subscriber(
         data.email.as_ref()
     );
 
-    if let Some(subscriber_id) = maybe_id
-        .fetch_optional(&mut **transaction)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to execute query: {:?}", e);
-            e
-        })?
-    {
+    if let Some(subscriber_id) = maybe_id.fetch_optional(&mut **transaction).await? {
         return Ok(subscriber_id);
     };
 
@@ -202,10 +195,7 @@ async fn insert_subscriber(
         data.name.as_ref(),
         Utc::now()
     );
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    transaction.execute(query).await?;
     Ok(subscriber_id)
 }
 
@@ -218,14 +208,7 @@ async fn store_token(
         "SELECT subscription_token FROM subscription_tokens WHERE subscriber_id = $1",
         subscriber_id
     );
-    if let Some(subscription_token) = maybe_token
-        .fetch_optional(&mut **transaction)
-        .await
-        .map_err(|e| {
-            tracing::error!("Failed to execute query: {:?}", e);
-            e
-        })?
-    {
+    if let Some(subscription_token) = maybe_token.fetch_optional(&mut **transaction).await? {
         return Ok(subscription_token);
     };
     let subscription_token = generate_subscription_token();
@@ -235,9 +218,6 @@ async fn store_token(
         subscription_token,
         subscriber_id
     );
-    transaction.execute(query).await.map_err(|e| {
-        tracing::error!("Failed to execute query: {:?}", e);
-        e
-    })?;
+    transaction.execute(query).await?;
     Ok(subscription_token)
 }
