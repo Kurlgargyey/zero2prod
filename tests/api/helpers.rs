@@ -6,6 +6,9 @@ use sqlx::{Connection, Executor, PgConnection, PgPool};
 use std::sync::LazyLock;
 use uuid::Uuid;
 use wiremock::MockServer;
+use wiremock::matchers::{method, path};
+use wiremock::{Mock, ResponseTemplate};
+
 use zero2prod::{
     configuration::{DatabaseSettings, get_configuration},
     startup::{Application, get_connection_pool},
@@ -138,4 +141,21 @@ async fn configure_database(config: &DatabaseSettings) -> PgPool {
         .expect("Failed to migrate database");
 
     connection_pool
+}
+
+pub async fn create_unconfirmed_subscriber(app: &TestApp) {
+    let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
+
+    let _mock_guard = Mock::given(path("/gmail/v1/users/me/messages/send"))
+        .and(method("POST"))
+        .respond_with(ResponseTemplate::new(200))
+        .named("Create unconfirmed subscriber.")
+        .expect(1)
+        .mount_as_scoped(&app.email_server)
+        .await;
+
+    app.post_subscriptions(body.into())
+        .await
+        .error_for_status()
+        .unwrap();
 }
