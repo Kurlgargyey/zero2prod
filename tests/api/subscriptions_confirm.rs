@@ -101,11 +101,11 @@ async fn clicking_on_the_confirmation_link_again_returns_unauthorized_if_already
 
     let second_response = reqwest::get(confirmation_link.html).await.unwrap();
 
-    assert_ne!(200, second_response.status().as_u16())
+    assert_eq!(401, second_response.status().as_u16())
 }
 
 #[tokio::test]
-async fn querying_an_invalid_token_fails() {
+async fn querying_an_invalid_token_returns_400() {
     // Arrange
     let app = spawn_app().await;
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
@@ -125,5 +125,5 @@ async fn querying_an_invalid_token_fails() {
     // Act
     let result = reqwest::get(confirmation_link).await.unwrap();
 
-    assert_ne!(200, result.status().as_u16())
+    assert_eq!(400, result.status().as_u16())
 }
