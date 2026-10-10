@@ -43,14 +43,13 @@ impl ResponseError for ConfirmError {
 async fn get_subscriber_id_from_token(
     pool: &PgPool,
     subscription_token: &str,
-) -> Result<Option<Uuid>, ConfirmError> {
+) -> Result<Option<Uuid>, sqlx::Error> {
     let result = sqlx::query!(
         "SELECT subscriber_id FROM subscription_tokens WHERE subscription_token = $1",
         subscription_token
     )
     .fetch_optional(pool)
-    .await
-    .context("Failed to fetch subscriber ID from token.")?;
+    .await?;
     Ok(result.map(|r| r.subscriber_id))
 }
 
